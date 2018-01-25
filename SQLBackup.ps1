@@ -134,3 +134,84 @@ foreach ($instance in $service_name)
 
 }
 
+
+# SECTION FOR NO INSTANCE NAME - USES COMPUTER NAME AS IDENTIFIER
+
+    # Builds full path from $path and computername then checks if the directory exists, if it doesnt exist then creates that folder ready for use
+    $instancedirblank = "$path\$env:computername"
+    if(!(Test-Path -Path $instancedirblank )){ New-Item -ItemType directory -Path $instancedirblank }
+
+    # Counts the number of databases 
+    Get-SqlDatabase -ServerInstance $env:computername | Where { $_.Name -ne 'tempdb' } | foreach { $numberofdatabases++ }
+
+    # Backups up the database and increments $errorstocap so we know how many errors we may get
+    Get-SqlDatabase -ServerInstance $env:computername | Where { $_.Name -ne 'tempdb' } | foreach{Backup-SqlDatabase -DatabaseObject $_ -BackupFile "$path\$env:computername\$($_.NAME)_db_$(Get-Date -UFormat %Y%m%d%H%M).bak" 
+    $errorstocap++;}
+    
+    # Start build of event log message for this loop.
+    $finalmessageblank =""
+    $finalmessageblank = "Compatibility SQL Backup Script Executed any output and errors are shown below. "
+    $finalmessageblank += "( Script version  " 
+    $finalmessageblank += $scriptversionblank
+    $finalmessageblank += " )`n `n"
+    $finalmessageblank += $sqlscriptoutputblank
+    $finalmessageblank += " `n"
+    
+    $errortime=(Get-Date -UFormat %H:%M:%S) # Gets time when loop was executed for error tracking purposes
+
+    #If we get an error add the first error to $finalmessage with timestamp
+    if ($error[0] -ne $null)
+        { 
+            $finalmessageblank += $env:computername + ":`n"
+            $finalmessageblank += $errortime + " - " + $error[0]
+            $finalmessageblank += " `n"
+    
+            # If there is more than one error write to $finalmessage and loop until we reach the number of errors expected to catch from $errorstocap with a timestamp
+            while($errorval -ne $errorstocap)
+                {
+                    $finalmessage += $errortime + " - " + $error[$errorval]
+                    $finalmessage += " `n"
+                    $errorval++
+                }
+   
+            $finalmessage += " `n"
+        
+        }
+
+    #If no error just sat how many databases were backuped up with Timestamp
+    else { 
+        $finalmessage += $instancefolder + ":`n"
+        $finalmessage += $errortime + " - Backed up " + $numberofdatabases + " sucsessfully `n"
+     }
+
+
+
+    # IF STATEMENT PUT DELETE STATEMENT IN ELSE IN IF MOST RECENT FILE IS WITHIN 7 DAYS OLDER THAN 7 DAYS WILL BE DELETED OTHERWISE NOTHING
+
+    #Finds the most recent backup file time
+    $Item = Get-ChildItem -Path $path\$env:computername | Sort CreationTime | select -Last 1  
+
+
+    if ($item.CreationTime -lt (date).adddays($Daysback)) { } # Makes sure our most recent backup isnt more than $daysback old if it is nothing gets done.
+    else { 
+            # Counts files being deleted deleted that are older than $daysback
+            $filestodelete=(Get-ChildItem $path\$env:computername | Where-Object { $_.LastWriteTime -lt (date).adddays($Daysback) })
+            $filesdeleted = $filestodelete.Count
+    
+            # Deletes the files that are older than $daysback
+            Get-ChildItem $path\$env:computername | Where-Object { $_.LastWriteTime -lt (date).adddays($Daysback) } | Remove-Item 
+    
+            # Updates our event log message
+            $finalmessage += $filesdeleted 
+            $finalmessage += " Backups over retention period cleaned up"
+    
+         }
+
+
+    # Writes our event log with a Info or Warning Depending on Succsess or failure
+    if ($error[0] -ne $null)
+    { Write-EventLog -LogName Application -Source "Compat SQL Backup Script" -EntryType Warning -EventID 2 -Message $finalmessage }
+        else { <# $finalmessage += "`n `n No Errors Detected - All databases defined should be backed up" #>
+                Write-EventLog -LogName Application -Source "Compat SQL Backup Script" -EntryType Information -EventID 1 -Message $finalmessage }
+
+# END OF COMPUTER NAME BACKUP IDENTIFIER SECTION
