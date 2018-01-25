@@ -134,18 +134,3 @@ foreach ($instance in $service_name)
 
 }
 
-#### OLD STUFF REMOVE BELOW?
-
-# ------------- end of section to edit
-
-#backup all databases and append date - not used while editing the above
-#Get-SqlDatabase -ServerInstance $sqlinstance | Where { $_.Name -ne 'tempdb' } | foreach{Backup-SqlDatabase -DatabaseObject $_ -BackupFile "$path\$($_.NAME)_db_$(Get-Date -UFormat %Y%m%d%H%M).bak"}
-
-#removes old files in $path over x days defined by $daysback
-#Get-ChildItem $Path | Where-Object { $_.LastWriteTime -lt $DatetoDelete } | Remove-Item
-
-# Write to Event Log
-#if ($error[0] -ne $null)
- #   { Write-EventLog -LogName Application -Source "Compat SQL Backup Script" -EntryType Warning -EventID 2 -Message $finalmessage }
-  #      else { $finalmessage += "`n `n No Errors Detected - All databases defined should be backed up"
-   #             Write-EventLog -LogName Application -Source "Compat SQL Backup Script" -EntryType Information -EventID 1 -Message $finalmessage }
