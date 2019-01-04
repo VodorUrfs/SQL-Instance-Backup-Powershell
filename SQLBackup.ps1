@@ -1,4 +1,5 @@
 #script to backup all found sql databases over all instances on the local computer only.
+#test banana man
 #take into consideration the backup location, size of databases vs copies kept.
 #NTAUTHORITY\SYSTEM requires sysadmin rights on each SQL instance to work or entire script may fail.
 #script needs to be manually run once to make sure it works and any configuration issues resolved before run on schedule
